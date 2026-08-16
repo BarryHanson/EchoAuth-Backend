@@ -1,0 +1,302 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        Int     @id @default(autoincrement())
+  username  String  @unique @db.VarChar(32)
+  password  String  @db.VarChar(255)
+  role      String  @db.VarChar(32) // "god", "owner", "seller", "user"
+
+  // For owners: their owned programs (can own multiple)
+  ownedPrograms Owner[] @relation("UserToOwnedPrograms")
+
+  // For sellers: their seller profile
+  sellerProfile Seller? @relation("UserToSeller")
+
+  // For users: their purchased key
+  userKey   UserKey? @relation()
+
+  // Sessions for security tracking
+  sessions  Session[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("users")
+}
+
+model Owner {
+  id           Int     @id @default(autoincrement())
+  userId       Int     // Link to the User who owns this
+  user         User    @relation("UserToOwnedPrograms", fields: [userId], references: [id], onDelete: Cascade)
+
+  programName  String  @db.VarChar(128) // Name of their program/app
+  programSlug  String  @unique @db.VarChar(128) // URL-friendly identifier
+  description  String? @db.VarChar(512)
+
+  // API access control
+  apiSecret    String  @unique @db.VarChar(256) // Per-owner API secret for HMAC signing
+
+  // Sellers working under this owner
+  sellers      Seller[]
+
+  // Keys for this owner's program
+  keys         Key[]
+
+  // Cheats for this owner's program
+  cheats       Cheat[]
+
+  // HWIDs banned for this owner's program
+  hwids        HWID[]
+
+  // Logs for this owner's program
+  logs         Log[]
+
+  // User keys (users who purchased keys for this owner)
+  userKeys     UserKey[]
+
+  // Registration tokens for users and sellers
+  registrationTokens RegistrationToken[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
+  @@map("owners")
+}
+
+model Seller {
+  id           Int     @id @default(autoincrement())
+  userId       Int     @unique // Link to the User who is the seller
+  user         User    @relation("UserToSeller", fields: [userId], references: [id], onDelete: Cascade)
+
+  ownerId      Int     // Link to the owner they work under
+  owner        Owner   @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+
+  // Seller quotas/limits
+  maxKeysLimit Int     @default(0) // 0 = unlimited
+  keysGenerated Int    @default(0) // How many keys they've generated
+
+  // Permissions
+  canResetHWID Boolean @default(true)
+  canGenerateKeys Boolean @default(true)
+  isActive     Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([userId, ownerId])
+  @@map("sellers")
+}
+
+model Key {
+  id           Int     @id @default(autoincrement())
+  key          String  @unique @db.VarChar(32)
+  hwid         String? @db.VarChar(32)
+  status       String  @default("waiting") @db.VarChar(32)
+  subscribe    BigInt
+  subscribeend BigInt?
+  cheatId      Int
+  firstip      String? @db.VarChar(32)
+  lastip       String? @db.VarChar(32)
+  creator      String  @db.VarChar(32)
+
+  // Multi-tenancy
+  ownerId      Int     // Which owner's program this key is for
+  owner        Owner   @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+
+  // User who purchased this key
+  userKey      UserKey? @relation()
+
+  // Registration token if this key is pending user registration
+  registrationToken RegistrationToken? @relation()
+
+  banreason    String? @db.VarChar(4096)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([ownerId])
+  @@map("keys")
+}
+
+model Cheat {
+  id        Int     @id @default(autoincrement())
+  name      String  @db.VarChar(32)
+  status    String  @default("Undetected") @db.VarChar(32)
+  filename  String  @db.VarChar(32)
+  process   String  @db.VarChar(256)
+  external  Boolean?
+  injection String  @db.VarChar(32)
+  creator   String  @db.VarChar(32)
+
+  // Security locks
+  requireHwidLock Boolean @default(true)  // Require HWID lock for access
+  requireIpLock   Boolean @default(true)  // Require IP lock for access
+
+  // Multi-tenancy
+  ownerId   Int     // Which owner's program this cheat is for
+  owner     Owner   @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+
+  // File upload
+  file      CheatFile? @relation()
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([ownerId])
+  @@map("cheats")
+}
+
+model CheatFile {
+  id           Int     @id @default(autoincrement())
+  cheatId      Int     @unique
+  cheat        Cheat   @relation(fields: [cheatId], references: [id], onDelete: Cascade)
+
+  filename     String  @db.VarChar(255) // Original filename
+  storedPath   String  @db.VarChar(512) // Path where file is stored on server
+  fileSize     BigInt  // File size in bytes
+  contentHash  String  @db.VarChar(64)  // SHA-256 hash of content for integrity
+
+  // Download tracking
+  lastDownloadedAt DateTime?
+  downloadCount Int   @default(0)
+
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@map("cheat_files")
+}
+
+model Loader {
+  id                   Int     @id @default(autoincrement())
+  name                 String  @db.VarChar(32)
+  version              String  @default("1") @db.VarChar(32)
+  file                 String  @db.VarChar(32)
+  requireFilenameMatch Boolean @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("loaders")
+}
+
+model HWID {
+  id     Int     @id @default(autoincrement())
+  hwid   String  @db.VarChar(32)
+  reason String  @db.VarChar(4096)
+
+  // Multi-tenancy
+  ownerId Int     // Which owner's program this HWID ban is for
+  owner   Owner   @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([hwid, ownerId])
+  @@index([ownerId])
+  @@map("hwids")
+}
+
+model Log {
+  id       Int     @id @default(autoincrement())
+  hwid     String  @db.VarChar(64)
+  key      String? @db.VarChar(32)
+  message  String  @db.VarChar(256)
+  ip       String  @db.VarChar(32)
+
+  // Multi-tenancy
+  ownerId  Int?    // Which owner's program this log is for (optional)
+  owner    Owner?  @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@index([ownerId])
+  @@map("logs")
+}
+
+model UserKey {
+  id        Int     @id @default(autoincrement())
+  userId    Int     @unique // Link to user who purchased this key
+  user      User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  keyId     Int     @unique // Link to the key
+  key       Key     @relation(fields: [keyId], references: [id], onDelete: Cascade)
+
+  ownerId   Int     // Which owner this belongs to
+  owner     Owner   @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+
+  activatedAt DateTime? // When the user activated their key
+  expiresAt   DateTime? // When the subscription expires
+
+  // Reset tracking (24-hour cooldown)
+  lastHwidReset DateTime? // Last time HWID was reset
+  lastIpReset   DateTime? // Last time IP was reset
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([ownerId])
+  @@map("user_keys")
+}
+
+model Session {
+  id              String  @id @db.VarChar(64) // SHA-256 hash
+  userId          Int
+  user            User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  hwid            String? @db.VarChar(256) // Hardware ID for session locking
+  ipAddress       String  @db.VarChar(64)
+  userAgent       String  @db.VarChar(512)
+
+  isValid         Boolean @default(true)
+
+  // Timestamp drift detection
+  lastServerTimestamp BigInt @default(0) // Last known server timestamp (ms) to detect clock rollback
+  suspiciousActivity  Boolean @default(false) // Flag if clock rollback detected
+
+  createdAt       DateTime @default(now())
+  lastActivityAt  DateTime @updatedAt
+  expiresAt       DateTime // 24 hours from creation
+
+  @@index([userId])
+  @@index([expiresAt])
+  @@map("sessions")
+}
+
+model RegistrationToken {
+  id        Int     @id @default(autoincrement())
+  token     String  @unique @db.VarChar(256) // Unique registration token
+  type      String  @db.VarChar(32) // "user" or "seller"
+
+  ownerId   Int     // Which owner this token belongs to
+  owner     Owner   @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+
+  // For user registrations
+  keyId     Int?    @unique // Link to the key (for user registrations)
+  key       Key?    @relation(fields: [keyId], references: [id], onDelete: SetNull)
+
+  // For seller registrations
+  maxKeysLimit Int   @default(100) // For sellers: how many keys they can generate
+  canResetHWID Boolean @default(true) // For sellers: permission to reset HWID
+  canGenerateKeys Boolean @default(true) // For sellers: permission to generate keys
+
+  isUsed    Boolean @default(false) // Whether this token has been used
+  usedAt    DateTime? // When the token was used
+  usedById  Int?    // Who used this token (if used)
+
+  expiresAt DateTime? // Optional expiration date
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([ownerId])
+  @@index([token])
+  @@map("registration_tokens")
+}
