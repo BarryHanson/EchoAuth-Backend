@@ -178,6 +178,17 @@ export class AuthService {
         },
       });
 
+      // Also update the user's key with HWID and IP for dashboard display
+      if (userKey) {
+        await prisma.key.update({
+          where: { id: userKey.keyId },
+          data: {
+            hwid,
+            lastip: ip,
+          },
+        });
+      }
+
       logger.info('Session created with HWID locking', { userId: user.id, username, hwid, ip, timestamp: currentServerTimestamp });
     }
 
