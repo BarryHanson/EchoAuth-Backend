@@ -5,8 +5,8 @@ import { PrismaClient } from '@prisma/client';
 
 const prisma = new PrismaClient();
 
-// Store files outside of web root
-const FILE_STORAGE_DIR = path.join(process.cwd(), '..', 'cheat_files');
+// Store files in uploads directory (volume-mounted in Docker)
+const FILE_STORAGE_DIR = path.join(process.cwd(), 'uploads');
 
 export class CheatFileService {
   /**
