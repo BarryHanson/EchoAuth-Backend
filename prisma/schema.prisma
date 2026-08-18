@@ -98,7 +98,7 @@ model Seller {
 model Key {
   id           Int     @id @default(autoincrement())
   key          String  @unique @db.VarChar(32)
-  hwid         String? @db.VarChar(32)
+  hwid         String? @db.VarChar(64)
   status       String  @default("waiting") @db.VarChar(32)
   subscribe    BigInt
   subscribeend BigInt?
@@ -189,7 +189,7 @@ model Loader {
 
 model HWID {
   id     Int     @id @default(autoincrement())
-  hwid   String  @db.VarChar(32)
+  hwid   String  @db.VarChar(64)
   reason String  @db.VarChar(4096)
 
   // Multi-tenancy
