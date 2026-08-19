@@ -44,19 +44,7 @@ export class CheatFileService {
     // Calculate SHA-256 hash for integrity
     const contentHash = createHash('sha256').update(fileBuffer).digest('hex');
 
-    // Generate secure filename (hash-based to prevent directory traversal)
-    const secureFilename = `${cheatId}_${contentHash.substring(0, 16)}.bin`;
-    const storedPath = path.join(FILE_STORAGE_DIR, secureFilename);
-
-    console.log(`[FILE UPLOAD] Attempting to write file to: ${storedPath}`);
-    console.log(`[FILE UPLOAD] File buffer size: ${fileBuffer.length}`);
-
-    // Write file to disk
-    await fs.writeFile(storedPath, fileBuffer);
-
-    console.log(`[FILE UPLOAD] File written successfully`);
-
-    // Delete old file if exists
+    // Delete old file if exists (before writing new one)
     const existingFile = await prisma.cheatFile.findUnique({
       where: { cheatId },
     });
@@ -72,6 +60,18 @@ export class CheatFileService {
         where: { cheatId },
       });
     }
+
+    // Generate secure filename (hash-based to prevent directory traversal)
+    const secureFilename = `${cheatId}_${contentHash.substring(0, 16)}.bin`;
+    const storedPath = path.join(FILE_STORAGE_DIR, secureFilename);
+
+    console.log(`[FILE UPLOAD] Attempting to write file to: ${storedPath}`);
+    console.log(`[FILE UPLOAD] File buffer size: ${fileBuffer.length}`);
+
+    // Write file to disk
+    await fs.writeFile(storedPath, fileBuffer);
+
+    console.log(`[FILE UPLOAD] File written successfully`);
 
     // Create file record
     const cheatFile = await prisma.cheatFile.create({
