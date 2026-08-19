@@ -59,12 +59,14 @@ app.use((req, res) => {
 
 app.use(errorHandler);
 
-// Initialize storage directories
-CheatFileService.initializeStorage();
+// Initialize storage directories and start server
+(async () => {
+  await CheatFileService.initializeStorage();
 
-app.listen(PORT, () => {
-  logger.info(`Server running on port ${PORT}`);
-  logger.info(`Environment: ${process.env.NODE_ENV || 'development'}`);
-});
+  app.listen(PORT, () => {
+    logger.info(`Server running on port ${PORT}`);
+    logger.info(`Environment: ${process.env.NODE_ENV || 'development'}`);
+  });
+})();
 
 export default app;
