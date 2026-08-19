@@ -831,7 +831,7 @@ export class AdminController {
         throw new ApiError(401, 'Unauthorized');
       }
 
-      const { name, version, file, requireFilenameMatch } = req.body;
+      const { name, version, file, requireFilenameMatch, loaderHash, enforceHashVerification } = req.body;
 
       if (!name || !version || !file) {
         res.status(400).json({
@@ -847,6 +847,19 @@ export class AdminController {
       }
 
       const loader = await loaderService.createLoader(name, version, file, requireFilenameMatch ?? false);
+
+      // Update with hash and enforcement if provided
+      if (loaderHash || enforceHashVerification) {
+        const updated = await loaderService.updateLoader(loader.id, {
+          loaderHash: loaderHash || undefined,
+          enforceHashVerification: enforceHashVerification ?? false,
+        });
+        return res.status(201).json({
+          status: 'success',
+          data: updated,
+          timestamp: Date.now(),
+        });
+      }
 
       const response: ApiResponse<typeof loader> = {
         status: 'success',
@@ -867,7 +880,7 @@ export class AdminController {
       }
 
       const { loaderId } = req.params;
-      const { name, version, file, requireFilenameMatch } = req.body;
+      const { name, version, file, requireFilenameMatch, loaderHash, enforceHashVerification } = req.body;
 
       if (!PermissionChecker.canAccessAdmin(req.userContext)) {
         throw new ApiError(403, 'Forbidden: Admin access required');
@@ -878,6 +891,8 @@ export class AdminController {
         version,
         file,
         requireFilenameMatch,
+        loaderHash,
+        enforceHashVerification,
       });
 
       const response: ApiResponse<typeof loader> = {

@@ -38,7 +38,7 @@ export class LoaderService {
     return loader;
   }
 
-  async updateLoader(loaderId: number, data: { name?: string; version?: string; file?: string; requireFilenameMatch?: boolean }) {
+  async updateLoader(loaderId: number, data: { name?: string; version?: string; file?: string; requireFilenameMatch?: boolean; loaderHash?: string; enforceHashVerification?: boolean }) {
     const loader = await prisma.loader.findUnique({
       where: { id: loaderId },
     });
