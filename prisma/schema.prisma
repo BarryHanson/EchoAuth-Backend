@@ -180,6 +180,8 @@ model Loader {
   version              String  @default("1") @db.VarChar(32)
   file                 String  @db.VarChar(32)
   requireFilenameMatch Boolean @default(false)
+  loaderHash           String? @db.VarChar(64) // SHA-256 hash (optional)
+  enforceHashVerification Boolean @default(false)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
