@@ -14,9 +14,11 @@ export class CheatFileService {
    */
   static async initializeStorage() {
     try {
+      console.log(`[STORAGE INIT] Creating directory: ${FILE_STORAGE_DIR}`);
       await fs.mkdir(FILE_STORAGE_DIR, { recursive: true });
+      console.log(`[STORAGE INIT] Directory created successfully`);
     } catch (error) {
-      console.error('Failed to create file storage directory:', error);
+      console.error('[STORAGE INIT] Failed to create file storage directory:', error);
     }
   }
 
@@ -45,8 +47,13 @@ export class CheatFileService {
     const secureFilename = `${cheatId}_${contentHash.substring(0, 16)}.bin`;
     const storedPath = path.join(FILE_STORAGE_DIR, secureFilename);
 
+    console.log(`[FILE UPLOAD] Attempting to write file to: ${storedPath}`);
+    console.log(`[FILE UPLOAD] File buffer size: ${fileBuffer.length}`);
+
     // Write file to disk
     await fs.writeFile(storedPath, fileBuffer);
+
+    console.log(`[FILE UPLOAD] File written successfully`);
 
     // Delete old file if exists
     const existingFile = await prisma.cheatFile.findUnique({
