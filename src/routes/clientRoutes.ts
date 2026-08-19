@@ -36,6 +36,10 @@ router.post('/loader/check-version', (req, res, next) =>
   clientController.checkLoaderVersion(req, res, next)
 );
 
+router.get('/loader/hash-info/:loaderId', (req, res, next) =>
+  clientController.getLoaderHashInfo(req, res, next)
+);
+
 router.post('/submit-log', authMiddleware, (req, res, next) =>
   clientController.submitAuthLog(req, res, next)
 );

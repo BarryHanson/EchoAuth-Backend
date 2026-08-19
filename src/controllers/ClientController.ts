@@ -274,6 +274,53 @@ export class ClientController {
     }
   }
 
+  async getLoaderHashInfo(req: Request, res: Response, next: NextFunction) {
+    try {
+      const { loaderId } = req.params;
+
+      if (!loaderId) {
+        res.status(400).json({
+          status: 'error',
+          message: 'Loader ID is required',
+          timestamp: Date.now(),
+        });
+        return;
+      }
+
+      const { PrismaClient } = require('@prisma/client');
+      const prisma = new PrismaClient();
+
+      const loader = await prisma.loader.findUnique({
+        where: { id: parseInt(loaderId) },
+      });
+
+      if (!loader) {
+        res.status(404).json({
+          status: 'error',
+          message: 'Loader not found',
+          timestamp: Date.now(),
+        });
+        return;
+      }
+
+      const response: ApiResponse<{
+        loaderHash?: string;
+        enforceHashVerification: boolean;
+      }> = {
+        status: 'success',
+        data: {
+          loaderHash: loader.loaderHash || undefined,
+          enforceHashVerification: loader.enforceHashVerification || false,
+        },
+        timestamp: Date.now(),
+      };
+
+      res.json(response);
+    } catch (error) {
+      next(error);
+    }
+  }
+
   async checkLoaderVersion(req: Request, res: Response, next: NextFunction) {
     try {
       const { loaderId, currentVersion, filename } = req.body;
